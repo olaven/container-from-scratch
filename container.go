@@ -21,6 +21,8 @@ func main() {
 	switch (os.Args[1]) {
 		case "run": 
 			run() 
+		case "child": 
+			child()	
 	default: 
 		panic("Invalid argument.")
 	}
@@ -28,16 +30,31 @@ func main() {
 
 func run() {
 
-	cmd := exec.Command(os.Args[2], os.Args[3:]...)
+	cmd := exec.Command("/proc/self/exe", append([]string{"child"}, os.Args[2:]...)...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout 
 	cmd.Stderr = os.Stderr 
 	cmd.SysProcAttr = &syscall.SysProcAttr {
-		Cloneflags: syscall.CLONE_NEWUTS,
+		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID,
 	}
 
 	must(cmd.Run())
 }
+
+func child() {
+
+	cmd := exec.Command(os.Args[2], os.Args[3:]...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout 
+	cmd.Stderr = os.Stderr 
+
+	must(syscall.Chroot("/home/rootfs"))
+	must(syscall.Chdir("/"))
+
+	must(syscall.Mount("proc", "proc", "proc", 0, ""))
+	must(cmd.Run()) 
+}
+
 
 func must(err error) {
 
